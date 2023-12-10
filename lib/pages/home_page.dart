@@ -221,7 +221,6 @@ class _HomePageState extends State<HomePage> {
         initialDay = DateTime(now.year, now.month, now.day + 2);
       } else {
         initialDay = DateTime(now.year, now.month, now.day + 1);
-        ;
       }
     } else {
       if (DateTime.now().isAfter(DateTime(DateTime.now().year,
@@ -289,6 +288,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    // pickupTextEditingController.text = "Faculty of Engineering, ASU";
     getCurrentLocation();
     getUserInfo();
   }
@@ -316,7 +316,7 @@ class _HomePageState extends State<HomePage> {
               borderRadius: BorderRadius.circular(20),
             ),
             onPressed: () {
-              if (pickupTextEditingController.text.isEmpty &&
+              if (pickupTextEditingController.text.isEmpty ||
                   dropoffTextEditingController.text.isEmpty) {
                 Utils.displayToast(
                     "Enter Trip Start and End Location", context);
@@ -394,12 +394,12 @@ class _HomePageState extends State<HomePage> {
                 onTap: (){
                   Navigator.pushNamed(context, '/wallet');
                 },
-                leading: Icon(
+                leading: const Icon(
                   Icons.monetization_on_outlined,
                   color: Colors.white,
                   size: 34,
                 ),
-                title: Text(
+                title: const Text(
                   "Wallet",
                   style: TextStyle(
                     color: Colors.white,
@@ -498,6 +498,10 @@ class _HomePageState extends State<HomePage> {
                       child: Opacity(
                         opacity: rideType == "fromASU" ? 0.5 : 1,
                         child: GooglePlaceAutoCompleteTextField(
+                          onCrossBtnPressed: () {
+                            pickupTextEditingController.clear();
+                            clearMap();
+                          },
                           focusNode: pickupFocus,
                           textEditingController: pickupTextEditingController,
                           googleAPIKey: googleMapApiKeyAndroid,
@@ -583,6 +587,10 @@ class _HomePageState extends State<HomePage> {
                       child: Opacity(
                         opacity: rideType == "toASU" ? 0.5 : 1,
                         child: GooglePlaceAutoCompleteTextField(
+                          onCrossBtnPressed: () {
+                            dropoffTextEditingController.clear();
+                            clearMap();
+                          },
                           focusNode: dropoffFocus,
                           textEditingController: dropoffTextEditingController,
                           googleAPIKey: googleMapApiKeyAndroid,

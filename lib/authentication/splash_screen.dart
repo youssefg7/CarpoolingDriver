@@ -26,7 +26,6 @@ class _SplashScreenState extends State<SplashScreen> {
           return user['isDriver'] as bool ?? false;
         }
       } catch (e) {
-        print('Error checking user driver status: $e');
       }
     }
     return false;
@@ -36,24 +35,17 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     Timer(const Duration(seconds: 3), () async {
-      print("here");
       if (FirebaseAuth.instance.currentUser !=null){
-        print("object");
         bool isDriverRegistered = await isDriver();
-        print("object");
         if(!FirebaseAuth.instance.currentUser!.emailVerified){
-          print("here1");
           Navigator.pushReplacementNamed(context, '/verifyEmail');
         }else if (isDriverRegistered == false){
-          print("here2");
           Navigator.pushReplacementNamed(context, '/missingVehicle');
         }else{
-          print("here3");
           Navigator.pushReplacementNamed(context, '/home');
         }
       }
       else{
-        print("here3");
         Navigator.pushReplacementNamed(context, '/login');
       }
     }

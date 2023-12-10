@@ -34,7 +34,6 @@ class _LoginScreenState extends State<LoginScreen> {
         email: "${emailTextEditingController.text.trim()}@eng.asu.edu.eg",
         password: passwordTextEditingController.text.trim(),
       ).catchError((error) {
-                print(error);
         Navigator.pop(context);
         Utils.displaySnack(error.toString(), context);
       })).user;
@@ -64,7 +63,6 @@ class _LoginScreenState extends State<LoginScreen> {
             Utils.displaySnack("Email not registered. Please create an account!", context);
           }
         } catch (e) {
-          print(e);
           Utils.displaySnack("Error logging in. Please try again.", context);
         }
       }

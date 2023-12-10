@@ -215,9 +215,9 @@ class _SignupScreenState extends State<SignupScreen> {
                         validator: (value) {
                           if (value!.trim().isEmpty) {
                             return "Please enter your mobile number.";
-                          } else if (value?.trim().length != 11) {
+                          } else if (value.trim().length != 11) {
                             return "Mobile Number must be exactly 11 numbers.";
-                          } else if (!value!.trim().startsWith("01")) {
+                          } else if (!value.trim().startsWith("01")) {
                             return "Mobile Number must start with 01.";
                           }
                         },
@@ -333,13 +333,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                 if(image == null) {
                                   return;
                                 }
-                                try{
-
-                                }
-                                catch(e){
-                                }
+                                try{}
+                                catch(e){}
                             },
-                            child: Icon(Icons.camera_alt_outlined),
+                            child: const Icon(Icons.camera_alt_outlined),
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(40),

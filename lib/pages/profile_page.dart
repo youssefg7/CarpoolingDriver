@@ -26,7 +26,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final GlobalKey<FormState> _modelFormKey = GlobalKey<FormState>();
 
   bool updateColorPressed = false;
-  Color selectedColor = const Color(0);
+  Color selectedColor = const Color(0x00000000);
   String selectedColorName = "FFFFFFFF";
 
   bool updatePlatesPressed = false;
@@ -335,7 +335,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         .ref()
                         .child(
                             'profile_pictures/${FirebaseAuth.instance.currentUser!.uid}');
-                    await ref.putFile(File(image!.path));
+                    await ref.putFile(File(image.path));
                     String url = await ref.getDownloadURL();
                     FirebaseFirestore.instance
                         .collection('users')
@@ -749,7 +749,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ),
                                 ],
                               ),
-                              SizedBox(
+                              const SizedBox(
                                 height: 20,
                               ),
                             ]),
@@ -913,7 +913,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     fontWeight: FontWeight.bold),
                               ),
                             ),
-                            SizedBox(
+                            const SizedBox(
                               width: 10,
                             ),
                             IconButton(

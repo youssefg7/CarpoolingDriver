@@ -21,7 +21,7 @@ class _MissingVehicleScreenState extends State<MissingVehicleScreen> {
   TextEditingController colorPickerController = TextEditingController();
   String selectedVehicleType = "Car";
 
-  Color selectedColor = const Color(0);
+  Color selectedColor = const Color(0x00000000);
   String selectedColorName = "FFFFFFFF";
 
   final _formKey = GlobalKey<FormState>();
@@ -68,11 +68,8 @@ class _MissingVehicleScreenState extends State<MissingVehicleScreen> {
 
         Navigator.pushReplacementNamed(
           context,
-          '/home',
-        );
+          '/home',);
       } catch (e) {
-        print("Error updating driver information: $e");
-        // Handle the error, show a message, or perform any necessary action.
       }
     }
   }

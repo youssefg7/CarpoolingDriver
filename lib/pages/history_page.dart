@@ -31,18 +31,11 @@ class _HistoryPageState extends State<HistoryPage> {
           data['id'] = doc.id;
           filteredTrips.add(data);
         }
-
-        print(filteredTrips);
         return filteredTrips;
       } else {
-        print("No Trips for the current user");
       }
     } catch (e) {
-      print('Error fetching rides history: $e');
-      // Handle the error, show a message, or perform any necessary action.
     }
-
-    // Return an empty list in case of an error or no trips found
     return [];
   }
 
@@ -271,16 +264,16 @@ class _HistoryPageState extends State<HistoryPage> {
                 future: getTripsData(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator());
                   } else if (snapshot.hasError) {
                     return Center(
                       child: Text(
                         'Error: ${snapshot.error}',
-                        style: TextStyle(color: Colors.red),
+                        style: const TextStyle(color: Colors.red),
                       ),
                     );
                   } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return Center(
+                    return const Center(
                       child: Text(
                         "No Trips Yet",
                         style: TextStyle(
