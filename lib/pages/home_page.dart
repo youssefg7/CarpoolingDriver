@@ -60,6 +60,13 @@ class _HomePageState extends State<HomePage> {
   bool searchDone = false;
   int gate = 2;
   List<bool> selectedGate = [true, false];
+
+  List<Widget> stopsWidgets = [];
+
+  addStop(){
+    stopsWidgets.add(searchWidget);
+  }
+
   @override
   void dispose() {
     googleMapController.dispose();
@@ -288,7 +295,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // pickupTextEditingController.text = "Faculty of Engineering, ASU";
+    dropoffTextEditingController.text = "Faculty of Engineering, ASU";
     getCurrentLocation();
     getUserInfo();
   }
@@ -582,6 +589,79 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
+                    Expanded(
+                        child: ListView.builder(
+                            itemCount: stopsWidgets.length,
+                            itemBuilder: (context, index){
+                              return GooglePlaceAutoCompleteTextField(
+                                onCrossBtnPressed: () {},
+                                textEditingController: stopsControllers[index],
+                                googleAPIKey: googleMapApiKeyAndroid,
+                                textStyle: const TextStyle(
+                                  fontSize: 20,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                inputDecoration: InputDecoration(
+                                  labelText: "Search Stop Location",
+                                  labelStyle: const TextStyle(
+                                      fontSize: 20, color: Colors.white),
+                                  contentPadding:
+                                  const EdgeInsets.fromLTRB(22, 12, 0, 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(40),
+                                    borderSide: const BorderSide(
+                                      width: 2,
+                                      color: Colors.purple,
+                                    ),
+                                  ),
+                                  suffixIcon: const Icon(Icons.location_pin),
+                                ),
+                                boxDecoration: const BoxDecoration(
+                                  color: Colors.black,
+                                ),
+                                debounceTime: 800,
+                                countries: const ["eg"],
+                                getPlaceDetailWithLatLng: (Prediction prediction) {
+                                  setState(() {
+                                    currentPrediction = prediction;
+                                  });
+                                  searchWithPrediction(prediction);
+                                }, // this callback is called when isLatLngRequired is true
+                                itemClick: (Prediction prediction) {
+                                  dropoffTextEditingController.text =
+                                  prediction.description!;
+                                  dropoffTextEditingController.selection =
+                                      TextSelection.fromPosition(TextPosition(
+                                          offset: prediction.description!.length));
+                                },
+                                // if we want to make custom list item builder
+                                itemBuilder: (context, index, Prediction prediction) {
+                                  return Padding(
+                                    padding:
+                                    const EdgeInsets.fromLTRB(12, 24, 12, 24),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.location_on),
+                                        const SizedBox(
+                                          width: 7,
+                                        ),
+                                        Expanded(
+                                            child: Text(prediction.description ?? "",
+                                                style: const TextStyle(
+                                                    fontSize: 18,
+                                                    color: Colors.white))),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                seperatedBuilder: const Divider(
+                                  height: 1,
+                                ),
+                                isCrossBtnShown: rideType == "toASU" ? false : true,
+                              );
+                            })
+                    ),
                     AbsorbPointer(
                       absorbing: rideType == "toASU" ? true : false,
                       child: Opacity(
@@ -679,6 +759,22 @@ class _HomePageState extends State<HomePage> {
                           size: 35,
                         ),
                       ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 44,
+                  left: 7,
+                  child: GestureDetector(
+                    onTap: addStop,
+                    child: const CircleAvatar(
+                      backgroundColor: Colors.white,
+                      radius: 18,
+                      child: Icon(
+                          Icons.add_location_alt_outlined,
+                          color: Colors.black,
+                          size: 35,
+                        ),
                     ),
                   ),
                 ),

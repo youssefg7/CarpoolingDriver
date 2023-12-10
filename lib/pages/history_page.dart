@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:carpool_driver_flutter/Utilities/utils.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,9 +12,51 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
 
-
   final List<String> statusTypes = ["UPCOMING", "COMPLETED", "CANCELLED"];
   List<String> selectedStatusTypes = [];
+
+  showAlertDialog(BuildContext context, snpashot) {
+    Widget cancelButton = TextButton(
+      child: const Text("Don't Cancel"),
+      onPressed: () {
+        Navigator.of(context).pop();
+        setState(() {
+        });
+      },
+    );
+
+
+    Widget continueButton = TextButton(
+      child: const Text("Confirm Trip Cancellation"),
+      onPressed: () {
+        Navigator.of(context).pop();
+        FirebaseFirestore.instance
+            .collection('trips').doc(snpashot['id']).update({
+          'status': 'cancelled',
+        }).then((value) => Utils.displayToast("Trip Cancelled!", context))
+            .catchError((error) => Utils.displaySnack("Couldn't Cancel Trip", context));
+        },
+    );
+    // set up the AlertDialog
+    AlertDialog alert = AlertDialog(
+      title: const Text("Cancel Trip"),
+      content:
+      const Text("Are you sure you want to cancel this trip?"),
+      actions: [
+        cancelButton,
+        continueButton,
+      ],
+    );
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return alert;
+      },
+    );
+  }
+
+
+
 
   Future<List<Map<String, dynamic>>> getRidesHistory() async {
     var userId = FirebaseAuth.instance.currentUser?.uid;
@@ -25,17 +68,14 @@ class _HistoryPageState extends State<HistoryPage> {
 
       if (querySnapshot.size > 0) {
         List<Map<String, dynamic>> filteredTrips = [];
-
         for (QueryDocumentSnapshot doc in querySnapshot.docs) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           data['id'] = doc.id;
           filteredTrips.add(data);
         }
         return filteredTrips;
-      } else {
       }
-    } catch (e) {
-    }
+    } catch (e) {}
     return [];
   }
 
@@ -78,154 +118,163 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget buildTripCard(Map<String, dynamic> snapshot, BuildContext context) {
-    return Card(
-      color: Colors.black,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Colors.white24, width: 2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.date_range_sharp),
-                    const SizedBox(width: 10),
-                    Text(
-                      snapshot['date']
-                          .toString()
-                          .substring(0, 10),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 5, 0, 5),
+      child: Card(
+        elevation: 10,
+        shadowColor: Colors.black,
+        color: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Colors.white24, width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.date_range_sharp),
+                      const SizedBox(width: 10),
+                      Text(
+                        snapshot['date']
+                            .toString()
+                            .substring(0, 10),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.watch_later_outlined),
-                    const SizedBox(width: 10),
-                    Text(
-                      snapshot['rideType'] == 'toASU'
-                          ? '07:30 AM'
-                          : '05:30 PM',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.watch_later_outlined),
+                      const SizedBox(width: 10),
+                      Text(
+                        snapshot['rideType'] == 'toASU'
+                            ? '07:30 AM'
+                            : '05:30 PM',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(Icons.location_pin),
-                const SizedBox(width: 10),
-                Text(
-                  "From: ${snapshot['start']}",
-                  style: const TextStyle(fontSize: 18),
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Row(
-              children: [
-                const Icon(Icons.location_pin),
-                const SizedBox(width: 10),
-                Text(
-                  "To: ${snapshot['destination']}",
-                  style: const TextStyle(fontSize: 18),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(Icons.question_mark),
-                const SizedBox(width: 10),
-                Text(
-                  "Trip Status: ${snapshot['status'].toString().toUpperCase()}",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Icon(Icons.route),
-                Text(
-                  snapshot['distance'].toString(),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Icon(Icons.drive_eta),
-                Text(
-                  snapshot['duration'].toString(),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Icon(Icons.attach_money),
-                Text(
-                  snapshot['price'].toString(),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Icon(Icons.person),
-                Text(
-                  snapshot['passengersCount'].toString(),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    showAlertDialog(context, snapshot);
-                    setState(() {});
-                  },
-                  icon: const Icon(Icons.delete_outlined),
-                  label: const Text("Cancel Trip"),
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all(Colors.red),
-                    foregroundColor: MaterialStateProperty.all(Colors.white),
-                    shape: MaterialStateProperty.all<RoundedRectangleBorder>(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18.0),
-                      ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.location_pin),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "From: ${snapshot['start']}",
+                      style: const TextStyle(fontSize: 18),
                     ),
                   ),
-                ),
-              ],
-            )
-          ],
+                ],
+              ),
+              const SizedBox(height: 5),
+              Row(
+                children: [
+                  const Icon(Icons.location_pin),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "To: ${snapshot['destination']}",
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.question_mark),
+                  const SizedBox(width: 10),
+                  Text(
+                    "Trip Status: ${snapshot['status'].toString().toUpperCase()}",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(Icons.route),
+                  Text(
+                    snapshot['distance'].toString(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Icon(Icons.drive_eta),
+                  Text(
+                    snapshot['duration'].toString(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Icon(Icons.attach_money),
+                  Text(
+                    snapshot['price'].toString(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Icon(Icons.person),
+                  Text(
+                    snapshot['passengersCount'].toString(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      showAlertDialog(context, snapshot);
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.delete_outlined),
+                    label: const Text("Cancel Trip"),
+                    style: ButtonStyle(
+                      backgroundColor: MaterialStateProperty.all(Colors.red),
+                      foregroundColor: MaterialStateProperty.all(Colors.white),
+                      shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18.0),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -284,8 +333,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                     );
                   } else {
-                    var filteredTrips =
-                    filterTripsByStatus(snapshot.data!, selectedStatusTypes);
+                    var filteredTrips = filterTripsByStatus(snapshot.data!, selectedStatusTypes);
                     return buildTripsList(filteredTrips);
                   }
                 },
@@ -296,35 +344,3 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 }
 
-showAlertDialog(BuildContext context, snapshot) {
-  // set up the buttons
-  Widget cancelButton = TextButton(
-    child: const Text("Don't Cancel"),
-    onPressed:  () {
-      Navigator.of(context).pop();
-    },
-  );
-  Widget continueButton = TextButton(
-    child: const Text("Confirm Cancellation"),
-    onPressed:  () {
-      Navigator.of(context).pop();
-      FirebaseFirestore.instance.collection("trips").doc(snapshot['id']).delete();
-    },
-  );
-  // set up the AlertDialog
-  AlertDialog alert = AlertDialog(
-    title: const Text("Cancel Trip"),
-    content: const Text("Are you sure you want to cancel this trip?"),
-    actions: [
-      cancelButton,
-      continueButton,
-    ],
-  );
-  // show the dialog
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return alert;
-    },
-  );
-}
