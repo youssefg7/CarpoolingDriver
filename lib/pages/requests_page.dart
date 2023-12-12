@@ -27,6 +27,13 @@ class _RequestsPageState extends State<RequestsPage> {
               onPressed: () {
                 // Close the dialog
                 Navigator.of(context).pop();
+
+                FirebaseFirestore.instance
+                    .collection('trips')
+                    .doc(snapshot['tripId'])
+                    .update({
+                  'passengersCount': int.parse(snapshot['tripPassengersCount']) + 1,
+                });
                 FirebaseFirestore.instance
                     .collection('reservations')
                     .doc(snapshot['uid'])
@@ -127,6 +134,7 @@ class _RequestsPageState extends State<RequestsPage> {
       data['destination'] = trip['destination'];
       data['price'] = trip['price'];
       data['tripId'] = trip['uid'];
+      data['tripPassengersCount'] = trip['passengersCount'];
       requests.add(data);
     }
 
