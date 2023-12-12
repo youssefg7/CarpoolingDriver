@@ -369,7 +369,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     child: ClipOval(
                       child: Image(
-                        image: user.containsKey('profilePicture')
+                        image: (user['profilePicture'] != null && user['profilePicture'] != '')
                             ? NetworkImage(user['profilePicture'])
                             : const AssetImage("assets/images/avatarman.png") as ImageProvider,
                         height: 150,

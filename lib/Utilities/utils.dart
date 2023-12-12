@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class Utils{
@@ -22,10 +23,10 @@ class Utils{
     ScaffoldMessenger.of(buildContext).showSnackBar(snackBar);
   }
 
-  static displayToast(String messageText, BuildContext buildContext){
+  static displayToast(String messageText, BuildContext buildContext, {Toast? toastLength = Toast.LENGTH_SHORT, ToastGravity? gravity, Color? backgroundColor, Color? textColor, double? fontSize}){
     Fluttertoast.showToast(
       msg: messageText,
-      toastLength: Toast.LENGTH_SHORT,
+      toastLength: toastLength,
       gravity: ToastGravity.CENTER,
       backgroundColor: Colors.blueAccent,
       textColor: Colors.white,
@@ -79,4 +80,9 @@ class Utils{
   static toRadians(double degree){
     return degree * (pi/180);
   }
+
+  static Future<void> makePhoneCall(String phoneNumber) async {
+    FlutterPhoneDirectCaller.callNumber(phoneNumber);
+  }
+
 }

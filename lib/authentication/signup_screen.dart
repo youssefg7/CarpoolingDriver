@@ -69,8 +69,11 @@ class _SignupScreenState extends State<SignupScreen> {
           .ref()
           .child(
           'profile_pictures/${userFirebase?.uid}');
-      await ref.putFile(File(image!.path));
-      String url = await ref.getDownloadURL();
+      String url = '';
+      try {
+        await ref.putFile(File(image!.path));
+        url = await ref.getDownloadURL();
+      } catch (e) {}
 
         Map<String, dynamic> userMap = {
           "username": usernameTextEditingController.text.trim(),

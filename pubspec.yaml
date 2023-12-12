@@ -58,6 +58,8 @@ dependencies:
   flex_color_picker: ^3.3.0
   cloud_firestore: ^4.13.5
   image_picker: ^1.0.4
+  flutter_phone_direct_caller: ^2.1.1
+
 
 dev_dependencies:
   flutter_test:

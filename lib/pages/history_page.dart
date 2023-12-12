@@ -15,7 +15,7 @@ class _HistoryPageState extends State<HistoryPage> {
   final List<String> statusTypes = ["UPCOMING", "COMPLETED", "CANCELLED"];
   List<String> selectedStatusTypes = [];
 
-  showAlertDialog(BuildContext context, snpashot) {
+  showAlertDialog(BuildContext context, snapshot) {
     Widget cancelButton = TextButton(
       child: const Text("Don't Cancel"),
       onPressed: () {
@@ -25,13 +25,12 @@ class _HistoryPageState extends State<HistoryPage> {
       },
     );
 
-
     Widget continueButton = TextButton(
       child: const Text("Confirm Trip Cancellation"),
       onPressed: () {
         Navigator.of(context).pop();
         FirebaseFirestore.instance
-            .collection('trips').doc(snpashot['id']).update({
+            .collection('trips').doc(snapshot['id']).update({
           'status': 'cancelled',
         }).then((value) => Utils.displayToast("Trip Cancelled!", context))
             .catchError((error) => Utils.displaySnack("Couldn't Cancel Trip", context));
@@ -55,36 +54,20 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-
-
-
-  Future<List<Map<String, dynamic>>> getRidesHistory() async {
-    var userId = FirebaseAuth.instance.currentUser?.uid;
-
-    try {
-      CollectionReference tripsCollection = FirebaseFirestore.instance.collection('trips');
-
-      QuerySnapshot querySnapshot = await tripsCollection.where('driverId', isEqualTo: userId).get();
-
-      if (querySnapshot.size > 0) {
-        List<Map<String, dynamic>> filteredTrips = [];
-        for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          data['id'] = doc.id;
-          filteredTrips.add(data);
-        }
-        return filteredTrips;
-      }
-    } catch (e) {}
-    return [];
-  }
-
   Future<List<Map<String, dynamic>>> getTripsData() async {
     var userId = FirebaseAuth.instance.currentUser?.uid;
     QuerySnapshot querySnapshot = await FirebaseFirestore.instance
         .collection('trips')
         .where('driverId', isEqualTo: userId)
         .get();
+    for (QueryDocumentSnapshot doc in querySnapshot.docs) {
+      if(doc['date'].toString().substring(0,10).compareTo(DateTime.now().toString().substring(0,10)) < 0){
+        FirebaseFirestore.instance
+            .collection('trips').doc(doc.id).update({
+          'status': 'completed',
+        });
+      }
+    }
 
     List<Map<String, dynamic>> trips = [];
     for (QueryDocumentSnapshot doc in querySnapshot.docs) {

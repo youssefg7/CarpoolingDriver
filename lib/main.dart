@@ -6,6 +6,7 @@ import 'package:carpool_driver_flutter/authentication/splash_screen.dart';
 import 'package:carpool_driver_flutter/pages/history_page.dart';
 import 'package:carpool_driver_flutter/pages/home_page.dart';
 import 'package:carpool_driver_flutter/pages/profile_page.dart';
+import 'package:carpool_driver_flutter/pages/requests_page.dart';
 import 'package:carpool_driver_flutter/pages/wallet_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -53,6 +54,7 @@ class MyApp extends StatelessWidget {
         '/history': (context) => const HistoryPage(),
         '/profile': (context) => const ProfilePage(),
         '/wallet': (context) => const WalletPage(),
+        '/requests': (context) => const RequestsPage(),
       },
     );
   }

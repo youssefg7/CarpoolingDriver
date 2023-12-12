@@ -62,9 +62,12 @@ class _HomePageState extends State<HomePage> {
   List<bool> selectedGate = [true, false];
 
   List<Widget> stopsWidgets = [];
+  List<TextEditingController> stopsControllers = [];
 
   addStop(){
-    stopsWidgets.add(searchWidget);
+    setState(() {
+      stopsControllers.add(TextEditingController());
+    });
   }
 
   @override
@@ -282,6 +285,7 @@ class _HomePageState extends State<HomePage> {
     };
 
     tripsCollection.add(newTrip).then((DocumentReference documentReference) {
+      documentReference.update({"uid": documentReference.id});
       Navigator.pop(context);
       Utils.displayToast("Trip Added Successfully", context);
       panelController.close();
@@ -399,6 +403,26 @@ class _HomePageState extends State<HomePage> {
               ),
               ListTile(
                 onTap: (){
+                  Navigator.pushNamed(context, '/requests');
+                },
+                leading: const Icon(
+                  Icons.receipt_outlined,
+                  color: Colors.white,
+                  size: 34,
+                ),
+                title: const Text(
+                  "Ride Requests",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(
+                height: 20,
+              ),
+              ListTile(
+                onTap: (){
                   Navigator.pushNamed(context, '/wallet');
                 },
                 leading: const Icon(
@@ -492,79 +516,237 @@ class _HomePageState extends State<HomePage> {
                   },
                   polylines: Set.from(polylines),
                 ),
-                Container(
-                  width: MediaQuery.of(context).size.width,
-                  height: 122,
-                  color: Colors.black,
-                  child: Column(children: [
-                    const SizedBox(
-                      height: 3,
-                    ),
-                    AbsorbPointer(
-                      absorbing: rideType == "fromASU" ? true : false,
-                      child: Opacity(
-                        opacity: rideType == "fromASU" ? 0.5 : 1,
-                        child: GooglePlaceAutoCompleteTextField(
-                          onCrossBtnPressed: () {
-                            pickupTextEditingController.clear();
-                            clearMap();
-                          },
-                          focusNode: pickupFocus,
-                          textEditingController: pickupTextEditingController,
-                          googleAPIKey: googleMapApiKeyAndroid,
-                          textStyle: const TextStyle(
-                            fontSize: 20,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          inputDecoration: InputDecoration(
-                            labelText: rideType == "fromASU"
-                                ? "Faculty of Engineering, Ain Shams University"
-                                : "Search Trip Start Location",
-                            labelStyle: const TextStyle(
-                                fontSize: 20, color: Colors.white),
-                            contentPadding:
-                                const EdgeInsets.fromLTRB(22, 12, 0, 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(40),
-                              borderSide: const BorderSide(
-                                width: 2,
-                                color: Colors.purple,
-                              ),
+                Positioned(
+                  // bottom: 0,
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    width: MediaQuery.of(context).size.width,
+                    height: 122,
+                    color: Colors.black,
+                    child: Column(children: [
+                      const SizedBox(
+                        height: 3,
+                      ),
+                      AbsorbPointer(
+                        absorbing: rideType == "fromASU" ? true : false,
+                        child: Opacity(
+                          opacity: rideType == "fromASU" ? 0.5 : 1,
+                          child: GooglePlaceAutoCompleteTextField(
+                            onCrossBtnPressed: () {
+                              pickupTextEditingController.clear();
+                              clearMap();
+                            },
+                            focusNode: pickupFocus,
+                            textEditingController: pickupTextEditingController,
+                            googleAPIKey: googleMapApiKeyAndroid,
+                            textStyle: const TextStyle(
+                              fontSize: 20,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
-                            suffixIcon: const Icon(Icons.location_pin),
-                          ),
-                          boxDecoration: const BoxDecoration(
-                            color: Colors.black,
-                          ),
-                          debounceTime: 800,
-                          countries: const ["eg"],
-                          getPlaceDetailWithLatLng: (Prediction prediction) {
-                            setState(() {
-                              currentPrediction = prediction;
-                            });
-                            searchWithPrediction(prediction);
-                          },
-                          itemClick: (Prediction prediction) {
-                            pickupTextEditingController.text =
-                                prediction.description!;
-                            pickupTextEditingController.selection =
-                                TextSelection.fromPosition(TextPosition(
-                                    offset: prediction.description!.length));
-                          },
-                          // if we want to make custom list background
-                          // listBackgroundColor: Colors.black,
-                          itemBuilder: (context, index, Prediction prediction) {
-                            return Card(
-                              color: Colors.white24,
-                              shape: RoundedRectangleBorder(
-                                side: const BorderSide(
-                                  width: 1,
+                            inputDecoration: InputDecoration(
+                              labelText: rideType == "fromASU"
+                                  ? "Faculty of Engineering, Ain Shams University"
+                                  : "Search Trip Start Location",
+                              labelStyle: const TextStyle(
+                                  fontSize: 20, color: Colors.white),
+                              contentPadding:
+                                  const EdgeInsets.fromLTRB(22, 12, 0, 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(40),
+                                borderSide: const BorderSide(
+                                  width: 2,
+                                  color: Colors.purple,
                                 ),
-                                borderRadius: BorderRadius.circular(20),
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(10),
+                              suffixIcon: const Icon(Icons.location_pin),
+                            ),
+                            boxDecoration: const BoxDecoration(
+                              color: Colors.black,
+                            ),
+                            debounceTime: 800,
+                            countries: const ["eg"],
+                            getPlaceDetailWithLatLng: (Prediction prediction) {
+                              setState(() {
+                                currentPrediction = prediction;
+                              });
+                              searchWithPrediction(prediction);
+                            },
+                            itemClick: (Prediction prediction) {
+                              pickupTextEditingController.text =
+                                  prediction.description!;
+                              pickupTextEditingController.selection =
+                                  TextSelection.fromPosition(TextPosition(
+                                      offset: prediction.description!.length));
+                            },
+                            // if we want to make custom list background
+                            // listBackgroundColor: Colors.black,
+                            itemBuilder: (context, index, Prediction prediction) {
+                              return Card(
+                                color: Colors.white24,
+                                shape: RoundedRectangleBorder(
+                                  side: const BorderSide(
+                                    width: 1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.location_on),
+                                      const SizedBox(
+                                        width: 7,
+                                      ),
+                                      Expanded(
+                                          child: Text(
+                                              prediction.description ?? "",
+                                              style: const TextStyle(
+                                                  fontSize: 18,
+                                                  color: Colors.white))),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                            seperatedBuilder: const Divider(
+                              height: 1,
+                            ),
+                            isCrossBtnShown: rideType == "fromASU" ? false : true,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                          child: ListView.builder(
+                              itemCount: stopsControllers.length,
+                              itemBuilder: (context, index){
+                                return GooglePlaceAutoCompleteTextField(
+                                  onCrossBtnPressed: () {},
+                                  textEditingController: stopsControllers[index],
+                                  googleAPIKey: googleMapApiKeyAndroid,
+                                  textStyle: const TextStyle(
+                                    fontSize: 20,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  inputDecoration: InputDecoration(
+                                    labelText: "Search Stop Location",
+                                    labelStyle: const TextStyle(
+                                        fontSize: 20, color: Colors.white),
+                                    contentPadding:
+                                    const EdgeInsets.fromLTRB(22, 12, 0, 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(40),
+                                      borderSide: const BorderSide(
+                                        width: 2,
+                                        color: Colors.purple,
+                                      ),
+                                    ),
+                                    suffixIcon: const Icon(Icons.location_pin),
+                                  ),
+                                  boxDecoration: const BoxDecoration(
+                                    color: Colors.black,
+                                  ),
+                                  debounceTime: 800,
+                                  countries: const ["eg"],
+                                  getPlaceDetailWithLatLng: (Prediction prediction) {
+                                    setState(() {
+                                      currentPrediction = prediction;
+                                    });
+                                    searchWithPrediction(prediction);
+                                  }, // this callback is called when isLatLngRequired is true
+                                  itemClick: (Prediction prediction) {
+                                    stopsControllers[index].text =
+                                    prediction.description!;
+                                    stopsControllers[index].selection =
+                                        TextSelection.fromPosition(TextPosition(
+                                            offset: prediction.description!.length));
+                                  },
+                                  // if we want to make custom list item builder
+                                  itemBuilder: (context, index, Prediction prediction) {
+                                    return Padding(
+                                      padding:
+                                      const EdgeInsets.fromLTRB(12, 24, 12, 24),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.location_on),
+                                          const SizedBox(
+                                            width: 7,
+                                          ),
+                                          Expanded(
+                                              child: Text(prediction.description ?? "",
+                                                  style: const TextStyle(
+                                                      fontSize: 18,
+                                                      color: Colors.white))),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  seperatedBuilder: const Divider(
+                                    height: 1,
+                                  ),
+                                  isCrossBtnShown: true,
+                                );
+                              })
+                      ),
+                      AbsorbPointer(
+                        absorbing: rideType == "toASU" ? true : false,
+                        child: Opacity(
+                          opacity: rideType == "toASU" ? 0.5 : 1,
+                          child: GooglePlaceAutoCompleteTextField(
+                            onCrossBtnPressed: () {
+                              dropoffTextEditingController.clear();
+                              clearMap();
+                            },
+                            focusNode: dropoffFocus,
+                            textEditingController: dropoffTextEditingController,
+                            googleAPIKey: googleMapApiKeyAndroid,
+                            textStyle: const TextStyle(
+                              fontSize: 20,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            inputDecoration: InputDecoration(
+                              labelText: rideType == "toASU"
+                                  ? "Faculty of Engineering, Ain Shams University"
+                                  : "Search Trip Destination Location",
+                              labelStyle: const TextStyle(
+                                  fontSize: 20, color: Colors.white),
+                              contentPadding:
+                                  const EdgeInsets.fromLTRB(22, 12, 0, 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(40),
+                                borderSide: const BorderSide(
+                                  width: 2,
+                                  color: Colors.purple,
+                                ),
+                              ),
+                              suffixIcon: const Icon(Icons.location_pin),
+                            ),
+                            boxDecoration: const BoxDecoration(
+                              color: Colors.black,
+                            ),
+                            debounceTime: 800,
+                            countries: const ["eg"],
+                            getPlaceDetailWithLatLng: (Prediction prediction) {
+                              setState(() {
+                                currentPrediction = prediction;
+                              });
+                              searchWithPrediction(prediction);
+                            }, // this callback is called when isLatLngRequired is true
+                            itemClick: (Prediction prediction) {
+                              dropoffTextEditingController.text =
+                                  prediction.description!;
+                              dropoffTextEditingController.selection =
+                                  TextSelection.fromPosition(TextPosition(
+                                      offset: prediction.description!.length));
+                            },
+                            itemBuilder: (context, index, Prediction prediction) {
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(12, 24, 12, 24),
                                 child: Row(
                                   children: [
                                     const Icon(Icons.location_on),
@@ -572,176 +754,23 @@ class _HomePageState extends State<HomePage> {
                                       width: 7,
                                     ),
                                     Expanded(
-                                        child: Text(
-                                            prediction.description ?? "",
+                                        child: Text(prediction.description ?? "",
                                             style: const TextStyle(
                                                 fontSize: 18,
                                                 color: Colors.white))),
                                   ],
                                 ),
-                              ),
-                            );
-                          },
-                          seperatedBuilder: const Divider(
-                            height: 1,
-                          ),
-                          isCrossBtnShown: rideType == "fromASU" ? false : true,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                        child: ListView.builder(
-                            itemCount: stopsWidgets.length,
-                            itemBuilder: (context, index){
-                              return GooglePlaceAutoCompleteTextField(
-                                onCrossBtnPressed: () {},
-                                textEditingController: stopsControllers[index],
-                                googleAPIKey: googleMapApiKeyAndroid,
-                                textStyle: const TextStyle(
-                                  fontSize: 20,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                inputDecoration: InputDecoration(
-                                  labelText: "Search Stop Location",
-                                  labelStyle: const TextStyle(
-                                      fontSize: 20, color: Colors.white),
-                                  contentPadding:
-                                  const EdgeInsets.fromLTRB(22, 12, 0, 12),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(40),
-                                    borderSide: const BorderSide(
-                                      width: 2,
-                                      color: Colors.purple,
-                                    ),
-                                  ),
-                                  suffixIcon: const Icon(Icons.location_pin),
-                                ),
-                                boxDecoration: const BoxDecoration(
-                                  color: Colors.black,
-                                ),
-                                debounceTime: 800,
-                                countries: const ["eg"],
-                                getPlaceDetailWithLatLng: (Prediction prediction) {
-                                  setState(() {
-                                    currentPrediction = prediction;
-                                  });
-                                  searchWithPrediction(prediction);
-                                }, // this callback is called when isLatLngRequired is true
-                                itemClick: (Prediction prediction) {
-                                  dropoffTextEditingController.text =
-                                  prediction.description!;
-                                  dropoffTextEditingController.selection =
-                                      TextSelection.fromPosition(TextPosition(
-                                          offset: prediction.description!.length));
-                                },
-                                // if we want to make custom list item builder
-                                itemBuilder: (context, index, Prediction prediction) {
-                                  return Padding(
-                                    padding:
-                                    const EdgeInsets.fromLTRB(12, 24, 12, 24),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.location_on),
-                                        const SizedBox(
-                                          width: 7,
-                                        ),
-                                        Expanded(
-                                            child: Text(prediction.description ?? "",
-                                                style: const TextStyle(
-                                                    fontSize: 18,
-                                                    color: Colors.white))),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                seperatedBuilder: const Divider(
-                                  height: 1,
-                                ),
-                                isCrossBtnShown: rideType == "toASU" ? false : true,
                               );
-                            })
-                    ),
-                    AbsorbPointer(
-                      absorbing: rideType == "toASU" ? true : false,
-                      child: Opacity(
-                        opacity: rideType == "toASU" ? 0.5 : 1,
-                        child: GooglePlaceAutoCompleteTextField(
-                          onCrossBtnPressed: () {
-                            dropoffTextEditingController.clear();
-                            clearMap();
-                          },
-                          focusNode: dropoffFocus,
-                          textEditingController: dropoffTextEditingController,
-                          googleAPIKey: googleMapApiKeyAndroid,
-                          textStyle: const TextStyle(
-                            fontSize: 20,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          inputDecoration: InputDecoration(
-                            labelText: rideType == "toASU"
-                                ? "Faculty of Engineering, Ain Shams University"
-                                : "Search Trip Destination Location",
-                            labelStyle: const TextStyle(
-                                fontSize: 20, color: Colors.white),
-                            contentPadding:
-                                const EdgeInsets.fromLTRB(22, 12, 0, 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(40),
-                              borderSide: const BorderSide(
-                                width: 2,
-                                color: Colors.purple,
-                              ),
+                            },
+                            seperatedBuilder: const Divider(
+                              height: 1,
                             ),
-                            suffixIcon: const Icon(Icons.location_pin),
+                            isCrossBtnShown: rideType == "toASU" ? false : true,
                           ),
-                          boxDecoration: const BoxDecoration(
-                            color: Colors.black,
-                          ),
-                          debounceTime: 800,
-                          countries: const ["eg"],
-                          getPlaceDetailWithLatLng: (Prediction prediction) {
-                            setState(() {
-                              currentPrediction = prediction;
-                            });
-                            searchWithPrediction(prediction);
-                          }, // this callback is called when isLatLngRequired is true
-                          itemClick: (Prediction prediction) {
-                            dropoffTextEditingController.text =
-                                prediction.description!;
-                            dropoffTextEditingController.selection =
-                                TextSelection.fromPosition(TextPosition(
-                                    offset: prediction.description!.length));
-                          },
-                          // if we want to make custom list item builder
-                          itemBuilder: (context, index, Prediction prediction) {
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(12, 24, 12, 24),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.location_on),
-                                  const SizedBox(
-                                    width: 7,
-                                  ),
-                                  Expanded(
-                                      child: Text(prediction.description ?? "",
-                                          style: const TextStyle(
-                                              fontSize: 18,
-                                              color: Colors.white))),
-                                ],
-                              ),
-                            );
-                          },
-                          seperatedBuilder: const Divider(
-                            height: 1,
-                          ),
-                          isCrossBtnShown: rideType == "toASU" ? false : true,
                         ),
                       ),
-                    ),
-                  ]),
+                    ]),
+                  ),
                 ),
                 Positioned(
                   top: 44,
