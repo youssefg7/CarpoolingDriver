@@ -16,7 +16,6 @@ class LocationServices extends GetxController{
     print(placeId);
     return placeId;
   }
-// ChIJIQVjIp8_WBQRm0bJ4qXAKXs
 
   static Future<Map<String,dynamic>> getPlace(String input) async{
     final placeId = await getPlaceId(input);

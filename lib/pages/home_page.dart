@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:carpool_driver_flutter/data/Models/TripModel.dart';
+import 'package:carpool_driver_flutter/data/Repositories/TripRepository.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:google_places_flutter/model/prediction.dart';
-import 'package:intl/intl.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +17,9 @@ import '../Utilities/utils.dart';
 import '../authentication/login_screen.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 
+import '../data/Models/UserModel.dart';
+import '../data/Repositories/ReservationRepository.dart';
+import '../data/Repositories/UserRepository.dart';
 import '../widgets/loading_dialog.dart';
 
 class HomePage extends StatefulWidget {
@@ -27,6 +30,16 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  UserRepository userRepository = UserRepository();
+  Student user = Student(
+    id: '',
+    username: '',
+    email: '',
+    phone: '',
+    isDriver: false,
+  );
+  ReservationRepository reservationRepository = ReservationRepository();
+  TripRepository tripRepository = TripRepository();
   final Completer<GoogleMapController> googleMapControllerCompleter =
       Completer<GoogleMapController>();
   late GoogleMapController googleMapController;
@@ -41,12 +54,11 @@ class _HomePageState extends State<HomePage> {
   GlobalKey<ScaffoldState> sandwichKey = GlobalKey<ScaffoldState>();
   GlobalKey<ScaffoldState> cartKey = GlobalKey<ScaffoldState>();
   bool serviceEnabled = false;
-  Map<String, dynamic> userInfo = {};
   Map<String, dynamic>? routeData;
   int price = 0;
   String duration = "0 mins";
   String distance = "0 kms";
-  late Prediction currentPrediction;
+  Prediction? currentPrediction;
   late LatLng pickupLatLng;
   late LatLng dropoffLatLng;
 
@@ -59,7 +71,7 @@ class _HomePageState extends State<HomePage> {
   bool floatingButtonVisibility = true;
   bool searchDone = false;
   int gate = 2;
-  List<bool> selectedGate = [true, false];
+  List<bool> selectedGate = [true, false, false];
 
   List<Widget> stopsWidgets = [];
   List<TextEditingController> stopsControllers = [];
@@ -76,8 +88,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  updateMapStyle(
-      GoogleMapController googleMapController, String mapStyleName) async {
+  updateMapStyle(GoogleMapController googleMapController, String mapStyleName) async {
     ByteData byteData =
         await rootBundle.load('lib/map_styles/${mapStyleName}_style.json');
     var list = byteData.buffer
@@ -92,32 +103,16 @@ class _HomePageState extends State<HomePage> {
     currentUserLatLng =
         LatLng(currentUserPosition!.latitude, currentUserPosition!.longitude);
     CameraPosition cameraPosition =
-        CameraPosition(target: currentUserLatLng!, zoom: 15);
+        CameraPosition(target: currentUserLatLng!, zoom: 14.4746);
     googleMapController
         .animateCamera(CameraUpdate.newCameraPosition(cameraPosition));
   }
 
   getUserInfo() async {
-    String uid = FirebaseAuth.instance.currentUser!.uid;
-    try {
-      DocumentSnapshot documentSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-
-      if (documentSnapshot.exists) {
-        Map<String, dynamic> data = documentSnapshot.data() as Map<String, dynamic>;
-        setState(() {
-          userInfo = data;
-        });
-      } else {
-        FirebaseAuth.instance.signOut();
-        Navigator.popAndPushNamed(context, '/login');
-      }
-    } catch (e) {
-      // Handle any potential errors
-      Utils.displayToast('Error fetching user data: $e',context);
-    }
+    user = await userRepository.getCurrentUser();
+    setState(() {
+      user = user;
+    });
   }
 
   addPolyLine(List<LatLng> polylineCoordinates) {
@@ -157,9 +152,10 @@ class _HomePageState extends State<HomePage> {
       }
       rideType = rideType == "toASU" ? "fromASU" : "toASU";
     });
-    if(pickupTextEditingController.text.isNotEmpty && dropoffTextEditingController.text.isNotEmpty) {
-      searchWithPrediction(currentPrediction);
+    if(pickupTextEditingController.text.isNotEmpty && dropoffTextEditingController.text.isNotEmpty && currentPrediction != null) {
+      searchWithPrediction(currentPrediction!);
     }
+    adjustInitialDate();
   }
 
   void clearMap() {
@@ -214,7 +210,27 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  DateTime? tripDate;
+  DateTime tripDate = DateTime.now();
+
+  void adjustInitialDate(){
+    if(rideType == "toASU"){
+      if(DateTime.now().isAfter(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, 22, 00))){
+        tripDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 2);
+      }else{
+        tripDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1);
+      }
+    }else{
+      if(DateTime.now().isAfter(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, 13, 00))){
+        tripDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day + 1);
+      }else{
+        tripDate = DateTime.now();
+      }
+    }
+    setState(() {
+      tripDate = tripDate;
+    });
+  }
+
   void callDatePicker() async {
     DateTime? date = await getDate();
     setState(() {
@@ -254,7 +270,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void addTrip() {
+  Future<void> addTrip() async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -263,45 +279,69 @@ class _HomePageState extends State<HomePage> {
       ),
     );
 
-    CollectionReference tripsCollection =
-    FirebaseFirestore.instance.collection('trips');
+    if(await tripRepository.checkIfTripExists(tripDate, rideType)){
+      Navigator.pop(context);
+      Utils.displaySnack("Couldn't add trip, Another trip in the same date and time already exits.", context);
+      return;
+    }
 
-    Map<String, dynamic> newTrip = {
-      "driverId": FirebaseAuth.instance.currentUser!.uid,
-      "rideType": rideType,
-      "start": rideType == "fromASU" ? "Faculty of Engineering, ASU" : pickupTextEditingController.text,
-      "destination": rideType == "toASU" ? "Faculty of Engineering, ASU" : dropoffTextEditingController.text,
-      "startLat": pickupLatLng.latitude.toString(),
-      "startLng": pickupLatLng.longitude.toString(),
-      "destinationLat": dropoffLatLng.latitude.toString(),
-      "destinationLng": dropoffLatLng.longitude.toString(),
-      "gate": gate,
-      "price": routeData!["priceText"],
-      "distance": routeData!["distanceText"],
-      "duration": routeData!["timeText"],
-      "date": tripDate!.toString(),
-      "status": "upcoming",
-      "passengersCount": 0,
-    };
+    Trip newTrip = Trip(id: "",
+        driverId: FirebaseAuth.instance.currentUser!.uid,
+        rideType: rideType,
+        start: rideType == "fromASU" ? "Faculty of Engineering, ASU" : pickupTextEditingController.text,
+        destination: rideType == "toASU" ? "Faculty of Engineering, ASU" : dropoffTextEditingController.text,
+        date: tripDate,
+        status: "upcoming",
+        destinationLat: dropoffLatLng.latitude,
+        destinationLng: dropoffLatLng.longitude,
+        startLat: pickupLatLng.latitude,
+        startLng: pickupLatLng.longitude,
+        gate: gate,
+        price: routeData!["priceText"],
+        distance: routeData!["distanceText"],
+        duration: routeData!["timeText"],
+        passengersCount: 0);
 
-    tripsCollection.add(newTrip).then((DocumentReference documentReference) {
-      documentReference.update({"uid": documentReference.id});
+    tripRepository.addTrip(newTrip).then((value){
       Navigator.pop(context);
       Utils.displayToast("Trip Added Successfully", context);
+      if(rideType == "fromASU"){
+        dropoffTextEditingController.clear();
+      }
+      if(rideType == "toASU"){
+        pickupTextEditingController.clear();
+      }
+      clearMap();
+      getCurrentLocation();
       panelController.close();
-    }).catchError((error) {
+    }).catchError((error){
       Navigator.pop(context);
       Utils.displaySnack("Trip not added, try again.", context);
     });
   }
 
 
+
   @override
   void initState() {
+    getUserInfo();
     super.initState();
     dropoffTextEditingController.text = "Faculty of Engineering, ASU";
+    dropoffTextEditingController.addListener(() {
+      if(dropoffTextEditingController.text.isEmpty){
+        clearMap();
+        getCurrentLocation();
+        currentPrediction = null;
+      }
+    });
+    pickupTextEditingController.addListener(() {
+      if(pickupTextEditingController.text.isEmpty){
+        clearMap();
+        getCurrentLocation();
+        currentPrediction = null;
+      }
+    });
     getCurrentLocation();
-    getUserInfo();
   }
 
   @override
@@ -326,12 +366,19 @@ class _HomePageState extends State<HomePage> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            onPressed: () {
+            onPressed: () async{
+              if(!(await Utils.checkInternetConnection(context))){
+                return;
+              }
+
               if (pickupTextEditingController.text.isEmpty ||
-                  dropoffTextEditingController.text.isEmpty) {
+                  dropoffTextEditingController.text.isEmpty ||
+              currentPrediction == null
+              ) {
                 Utils.displayToast(
                     "Enter Trip Start and End Location", context);
               } else {
+                adjustInitialDate();
                 panelController.open();
               }
             },
@@ -363,7 +410,7 @@ class _HomePageState extends State<HomePage> {
               ListTile(
                 onTap: () {
                   Navigator.pushNamed(context, '/profile',
-                      arguments: {"user": userInfo});
+                      arguments: {"user": user});
                 },
                 leading: const Icon(
                   Icons.person,
@@ -371,7 +418,7 @@ class _HomePageState extends State<HomePage> {
                   size: 40,
                 ),
                 title: Text(
-                  userInfo["username"] ?? "username",
+                  user.username,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -402,11 +449,14 @@ class _HomePageState extends State<HomePage> {
                 height: 20,
               ),
               ListTile(
-                onTap: (){
+                onTap: () async {
+                  if(!(await Utils.checkInternetConnection(context))){
+                    return;
+                  }
                   Navigator.pushNamed(context, '/requests');
                 },
                 leading: const Icon(
-                  Icons.receipt_outlined,
+                  Icons.question_mark,
                   color: Colors.white,
                   size: 34,
                 ),
@@ -452,6 +502,7 @@ class _HomePageState extends State<HomePage> {
               ListTile(
                 onTap: () {
                   FirebaseAuth.instance.signOut();
+                  userRepository.deleteCurrentUser();
                   Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -503,7 +554,6 @@ class _HomePageState extends State<HomePage> {
               children: [
                 GoogleMap(
                   padding: const EdgeInsets.only(bottom: 122),
-                  mapType: MapType.normal,
                   myLocationEnabled: true,
                   initialCameraPosition: googlePlexInitialPosition,
                   markers: markers,
@@ -511,7 +561,6 @@ class _HomePageState extends State<HomePage> {
                     setState(() {
                       googleMapController = controller;
                     });
-                    updateMapStyle(controller, 'normal');
                     googleMapControllerCompleter.complete(controller);
                   },
                   polylines: Set.from(polylines),
@@ -536,7 +585,11 @@ class _HomePageState extends State<HomePage> {
                           child: GooglePlaceAutoCompleteTextField(
                             onCrossBtnPressed: () {
                               pickupTextEditingController.clear();
-                              clearMap();
+                              setState(() {
+                                markers.clear();
+                                polylines.clear();
+                              });
+                              getCurrentLocation();
                             },
                             focusNode: pickupFocus,
                             textEditingController: pickupTextEditingController,
@@ -569,17 +622,22 @@ class _HomePageState extends State<HomePage> {
                             debounceTime: 800,
                             countries: const ["eg"],
                             getPlaceDetailWithLatLng: (Prediction prediction) {
+                              print("getPlaceDetailWithLatLng");
                               setState(() {
                                 currentPrediction = prediction;
                               });
                               searchWithPrediction(prediction);
                             },
                             itemClick: (Prediction prediction) {
+                              print("itemClick");
                               pickupTextEditingController.text =
-                                  prediction.description!;
+                                  prediction.structuredFormatting!.mainText!;
                               pickupTextEditingController.selection =
                                   TextSelection.fromPosition(TextPosition(
-                                      offset: prediction.description!.length));
+                                      offset: prediction.structuredFormatting!.mainText!.length));
+                              setState(() {
+
+                              });
                             },
                             // if we want to make custom list background
                             // listBackgroundColor: Colors.black,
@@ -601,11 +659,12 @@ class _HomePageState extends State<HomePage> {
                                         width: 7,
                                       ),
                                       Expanded(
-                                          child: Text(
-                                              prediction.description ?? "",
-                                              style: const TextStyle(
-                                                  fontSize: 18,
-                                                  color: Colors.white))),
+                                        child: Text(
+                                                prediction.description ?? "",
+                                                style: const TextStyle(
+                                                    fontSize: 18,
+                                                    color: Colors.white)),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -617,79 +676,6 @@ class _HomePageState extends State<HomePage> {
                             isCrossBtnShown: rideType == "fromASU" ? false : true,
                           ),
                         ),
-                      ),
-                      Expanded(
-                          child: ListView.builder(
-                              itemCount: stopsControllers.length,
-                              itemBuilder: (context, index){
-                                return GooglePlaceAutoCompleteTextField(
-                                  onCrossBtnPressed: () {},
-                                  textEditingController: stopsControllers[index],
-                                  googleAPIKey: googleMapApiKeyAndroid,
-                                  textStyle: const TextStyle(
-                                    fontSize: 20,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  inputDecoration: InputDecoration(
-                                    labelText: "Search Stop Location",
-                                    labelStyle: const TextStyle(
-                                        fontSize: 20, color: Colors.white),
-                                    contentPadding:
-                                    const EdgeInsets.fromLTRB(22, 12, 0, 12),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(40),
-                                      borderSide: const BorderSide(
-                                        width: 2,
-                                        color: Colors.purple,
-                                      ),
-                                    ),
-                                    suffixIcon: const Icon(Icons.location_pin),
-                                  ),
-                                  boxDecoration: const BoxDecoration(
-                                    color: Colors.black,
-                                  ),
-                                  debounceTime: 800,
-                                  countries: const ["eg"],
-                                  getPlaceDetailWithLatLng: (Prediction prediction) {
-                                    setState(() {
-                                      currentPrediction = prediction;
-                                    });
-                                    searchWithPrediction(prediction);
-                                  }, // this callback is called when isLatLngRequired is true
-                                  itemClick: (Prediction prediction) {
-                                    stopsControllers[index].text =
-                                    prediction.description!;
-                                    stopsControllers[index].selection =
-                                        TextSelection.fromPosition(TextPosition(
-                                            offset: prediction.description!.length));
-                                  },
-                                  // if we want to make custom list item builder
-                                  itemBuilder: (context, index, Prediction prediction) {
-                                    return Padding(
-                                      padding:
-                                      const EdgeInsets.fromLTRB(12, 24, 12, 24),
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.location_on),
-                                          const SizedBox(
-                                            width: 7,
-                                          ),
-                                          Expanded(
-                                              child: Text(prediction.description ?? "",
-                                                  style: const TextStyle(
-                                                      fontSize: 18,
-                                                      color: Colors.white))),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                  seperatedBuilder: const Divider(
-                                    height: 1,
-                                  ),
-                                  isCrossBtnShown: true,
-                                );
-                              })
                       ),
                       AbsorbPointer(
                         absorbing: rideType == "toASU" ? true : false,
@@ -738,10 +724,10 @@ class _HomePageState extends State<HomePage> {
                             }, // this callback is called when isLatLngRequired is true
                             itemClick: (Prediction prediction) {
                               dropoffTextEditingController.text =
-                                  prediction.description!;
+                              prediction.structuredFormatting!.mainText!;
                               dropoffTextEditingController.selection =
                                   TextSelection.fromPosition(TextPosition(
-                                      offset: prediction.description!.length));
+                                      offset: prediction.structuredFormatting!.mainText!.length));
                             },
                             itemBuilder: (context, index, Prediction prediction) {
                               return Padding(
@@ -754,10 +740,11 @@ class _HomePageState extends State<HomePage> {
                                       width: 7,
                                     ),
                                     Expanded(
-                                        child: Text(prediction.description ?? "",
-                                            style: const TextStyle(
-                                                fontSize: 18,
-                                                color: Colors.white))),
+                                      child: Text(prediction.description ?? "",
+                                              style: const TextStyle(
+                                                  fontSize: 18,
+                                                  color: Colors.white)),
+                                    ),
                                   ],
                                 ),
                               );
@@ -788,22 +775,6 @@ class _HomePageState extends State<HomePage> {
                           size: 35,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 44,
-                  left: 7,
-                  child: GestureDetector(
-                    onTap: addStop,
-                    child: const CircleAvatar(
-                      backgroundColor: Colors.white,
-                      radius: 18,
-                      child: Icon(
-                          Icons.add_location_alt_outlined,
-                          color: Colors.black,
-                          size: 35,
-                        ),
                     ),
                   ),
                 ),
@@ -866,13 +837,13 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                   Expanded(
                                     child: Text(
-                                      rideType == "toASU"
-                                          ? pickupTextEditingController.text
-                                          : "Faculty of Engineering, ASU",
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 21,
-                                          fontWeight: FontWeight.bold),
+                                        rideType == "toASU"
+                                            ? pickupTextEditingController.text
+                                            : "Faculty of Engineering, ASU",
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 21,
+                                            fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                 ]),
@@ -894,9 +865,7 @@ class _HomePageState extends State<HomePage> {
                                       constraints: BoxConstraints(
                                         minHeight: 40.0,
                                         minWidth:
-                                            (MediaQuery.of(context).size.width -
-                                                    40) /
-                                                2,
+                                            (MediaQuery.of(context).size.width - 40) / 3,
                                       ),
                                       isSelected: selectedGate,
                                       children: const [
@@ -905,6 +874,10 @@ class _HomePageState extends State<HomePage> {
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.bold)),
                                         Text("Gate 3",
+                                            style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold)),
+                                        Text("Gate 4",
                                             style: TextStyle(
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.bold))
@@ -951,13 +924,13 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                   Expanded(
                                     child: Text(
-                                      rideType == "fromASU"
-                                          ? dropoffTextEditingController.text
-                                          : "Faculty of Engineering, ASU",
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 21,
-                                          fontWeight: FontWeight.bold),
+                                        rideType == "fromASU"
+                                            ? dropoffTextEditingController.text
+                                            : "Faculty of Engineering, ASU",
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 21,
+                                            fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                 ]),
@@ -978,7 +951,7 @@ class _HomePageState extends State<HomePage> {
                                       constraints: BoxConstraints(
                                         minHeight: 40.0,
                                         minWidth:
-                                            (MediaQuery.of(context).size.width - 40) / 2,
+                                            (MediaQuery.of(context).size.width - 40) / 3,
                                       ),
                                       isSelected: selectedGate,
                                       children: const [
@@ -987,6 +960,10 @@ class _HomePageState extends State<HomePage> {
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.bold)),
                                         Text("Gate 3",
+                                            style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold)),
+                                        Text("Gate 4",
                                             style: TextStyle(
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.bold))
@@ -1044,11 +1021,11 @@ class _HomePageState extends State<HomePage> {
                                     width: 5,
                                   ),
                                   Text(
-                                    routeData?["timeText"],
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold),
+                                      routeData?["timeText"],
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold),
                                   ),
                                 ]),
                           ),
@@ -1069,8 +1046,8 @@ class _HomePageState extends State<HomePage> {
                               onTap: callDatePicker,
                               child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  textBaseline: TextBaseline.alphabetic,
+                                  // crossAxisAlignment: CrossAxisAlignment.center,
+                                  // textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     const Icon(
                                       Icons.date_range,
@@ -1080,18 +1057,12 @@ class _HomePageState extends State<HomePage> {
                                     const SizedBox(
                                       width: 5,
                                     ),
-                                    Expanded(
-                                      child: Text(
-                                        tripDate == null
-                                            ? DateFormat("E, dd MMM yyyy")
-                                                .format(DateTime.now())
-                                            : DateFormat("E, dd MMM yyyy")
-                                                .format(tripDate!),
+                                    Text(
+                                        Utils.formatDate(tripDate),
                                         style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 22,
                                             fontWeight: FontWeight.bold),
-                                      ),
                                     ),
                                   ]),
                             ),
@@ -1129,16 +1100,14 @@ class _HomePageState extends State<HomePage> {
                                         fontSize: 16,
                                         fontStyle: FontStyle.italic),
                                   ),
-                                  Expanded(
-                                    child: Text(
-                                      rideType == "toASU"
-                                          ? "7:30 AM"
-                                          : "5:30 PM",
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold),
-                                    ),
+                                  Text(
+                                    rideType == "toASU"
+                                        ? "7:30 AM"
+                                        : "5:30 PM",
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ]),
                           ),
@@ -1175,14 +1144,12 @@ class _HomePageState extends State<HomePage> {
                                         fontSize: 16,
                                         fontStyle: FontStyle.italic),
                                   ),
-                                  Expanded(
-                                    child: Text(
-                                      routeData?["priceText"],
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold),
-                                    ),
+                                  Text(
+                                    routeData?["priceText"],
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ]),
                           ),

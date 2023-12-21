@@ -1,9 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
-import '../Utilities/global_var.dart';
 import '../Utilities/utils.dart';
+import '../data/Models/UserModel.dart';
+import '../data/Repositories/UserRepository.dart';
 import '../widgets/loading_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -13,6 +12,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  UserRepository userRepository = UserRepository();
+
   TextEditingController emailTextEditingController = TextEditingController();
   TextEditingController passwordTextEditingController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -42,20 +43,16 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pop(context);
 
       if (userFirebase != null) {
-        DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(userFirebase.uid);
-
         try {
-          DocumentSnapshot snapshot = await userRef.get();
-
-          if (snapshot.exists) {
-            Map<String, dynamic> userData = snapshot.data() as Map<String, dynamic>;
-            username = userData["username"];
+          Student? user = await userRepository.getUser(userFirebase.uid);
+          if (user != null) {
             if (!FirebaseAuth.instance.currentUser!.emailVerified) {
               Utils.displayToast("Email not verified, please verify first.", context);
               Navigator.pushReplacementNamed(context, '/verifyEmail');
-            } else if(userData["isDriver"] == false){
+            } else if(user.isDriver == false){
               Navigator.pushNamed(context, '/missingVehicle');
             }else{
+              userRepository.setCurrentUser(user);
               Navigator.pushReplacementNamed(context, '/home');
             }
           } else {
@@ -63,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Utils.displaySnack("Email not registered. Please create an account!", context);
           }
         } catch (e) {
+          FirebaseAuth.instance.signOut();
           Utils.displaySnack("Error logging in. Please try again.", context);
         }
       }
@@ -218,7 +216,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               TextButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    if (!(await Utils.checkInternetConnection(context))) {
+                      return;
+                    }
                     Navigator.pushNamed(context, '/forgotPassword');
                   },
                   child: const Text(
@@ -228,7 +229,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   )),
               TextButton(
-                  onPressed: () {
+                  onPressed: () async{
+                    if (!(await Utils.checkInternetConnection(context))) {
+                      return;
+                    }
                     Navigator.pushNamed(context, '/signup');
                   },
                   child: const Text(

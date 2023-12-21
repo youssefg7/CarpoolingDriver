@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:carpool_driver_flutter/Utilities/utils.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../data/Models/TripModel.dart';
+import '../data/Repositories/TripRepository.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -12,29 +13,31 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
 
+  TripRepository tripRepository = TripRepository();
+
   final List<String> statusTypes = ["UPCOMING", "COMPLETED", "CANCELLED"];
   List<String> selectedStatusTypes = [];
 
-  showAlertDialog(BuildContext context, snapshot) {
+  showAlertDialog(Trip trip) {
     Widget cancelButton = TextButton(
       child: const Text("Don't Cancel"),
       onPressed: () {
         Navigator.of(context).pop();
-        setState(() {
-        });
       },
     );
-
     Widget continueButton = TextButton(
       child: const Text("Confirm Trip Cancellation"),
-      onPressed: () {
+      onPressed: () async{
+        if(!(await Utils.checkInternetConnection(context))) {return;}
         Navigator.of(context).pop();
-        FirebaseFirestore.instance
-            .collection('trips').doc(snapshot['id']).update({
-          'status': 'cancelled',
-        }).then((value) => Utils.displayToast("Trip Cancelled!", context))
-            .catchError((error) => Utils.displaySnack("Couldn't Cancel Trip", context));
-        },
+        trip.status = 'cancelled';
+        tripRepository.updateTrip(trip).then((value) {
+          setState(() {
+          });
+        }).catchError((error) {
+          Utils.displaySnack("Couldn't Cancel Trip, Try Again", context);
+        });
+      }
     );
     // set up the AlertDialog
     AlertDialog alert = AlertDialog(
@@ -46,6 +49,7 @@ class _HistoryPageState extends State<HistoryPage> {
         continueButton,
       ],
     );
+    // show the dialog
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -54,53 +58,37 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getTripsData() async {
+  Future<List<Trip>> getTripsData() async {
     var userId = FirebaseAuth.instance.currentUser?.uid;
-    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-        .collection('trips')
-        .where('driverId', isEqualTo: userId)
-        .get();
-    for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-      if(doc['date'].toString().substring(0,10).compareTo(DateTime.now().toString().substring(0,10)) < 0){
-        FirebaseFirestore.instance
-            .collection('trips').doc(doc.id).update({
-          'status': 'completed',
-        });
+    List<Trip> trips = await tripRepository.getTripsByDriverId(userId!);
+    for (Trip trip in trips) {
+      if(trip.date.isBefore(DateTime.now())){
+        trip.status = 'completed';
+        tripRepository.updateTrip(trip);
       }
-    }
-
-    List<Map<String, dynamic>> trips = [];
-    for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-      data['id'] = doc.id;
-      trips.add(data);
     }
     return trips;
   }
 
-  List<Map<String, dynamic>> filterTripsByStatus(
-      List<Map<String, dynamic>> trips, List<String> selectedStatusTypes) {
+  List<Trip> filterTripsByStatus(List<Trip> trips, List<String> selectedStatusTypes) {
     if (selectedStatusTypes.isEmpty) {
       return trips;
     } else {
-      return trips
-          .where((trip) =>
-          selectedStatusTypes.contains(trip['status'].toString()))
-          .toList();
+      return trips.where((trip) => selectedStatusTypes.contains(trip.status.toUpperCase())).toList();
     }
   }
 
-  Widget buildTripsList(List<Map<String, dynamic>> trips) {
+  Widget buildTripsList(List<Trip> trips) {
     return ListView.builder(
       itemCount: trips.length,
       itemBuilder: (context, index) {
-        var tripData = trips[index];
-        return buildTripCard(tripData, context);
+        Trip trip = trips[index];
+        return buildTripCard(trip, context);
       },
     );
   }
 
-  Widget buildTripCard(Map<String, dynamic> snapshot, BuildContext context) {
+  Widget buildTripCard(Trip trip, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 5, 0, 5),
       child: Card(
@@ -125,9 +113,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       const Icon(Icons.date_range_sharp),
                       const SizedBox(width: 10),
                       Text(
-                        snapshot['date']
-                            .toString()
-                            .substring(0, 10),
+                        Utils.formatDate(trip.date),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -140,7 +126,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       const Icon(Icons.watch_later_outlined),
                       const SizedBox(width: 10),
                       Text(
-                        snapshot['rideType'] == 'toASU'
+                        trip.rideType == 'toASU'
                             ? '07:30 AM'
                             : '05:30 PM',
                         style: const TextStyle(
@@ -159,7 +145,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "From: ${snapshot['start']}",
+                      "From: ${trip.start}",
                       style: const TextStyle(fontSize: 18),
                     ),
                   ),
@@ -172,7 +158,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "To: ${snapshot['destination']}",
+                      "To: ${trip.destination}",
                       style: const TextStyle(fontSize: 18),
                     ),
                   ),
@@ -181,13 +167,25 @@ class _HistoryPageState extends State<HistoryPage> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.question_mark),
+                  trip.status == 'completed' ?
+                  const Icon(Icons.check_circle, color: Colors.green,)
+                      :trip.status == 'cancelled'?
+                  const Icon(Icons.cancel, color: Colors.red,)
+                      : const Icon(Icons.pending, color: Colors.blueAccent,),
                   const SizedBox(width: 10),
-                  Text(
-                    "Trip Status: ${snapshot['status'].toString().toUpperCase()}",
-                    style: const TextStyle(
+                  const Text(
+                    "Trip Status: ",
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    trip.status.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: trip.status == 'completed' ? Colors.green :trip.status == 'cancelled'? Colors.red: Colors.blueAccent,
                     ),
                   ),
                 ],
@@ -199,7 +197,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 children: [
                   const Icon(Icons.route),
                   Text(
-                    snapshot['distance'].toString(),
+                    trip.distance,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -208,7 +206,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   const SizedBox(width: 10),
                   const Icon(Icons.drive_eta),
                   Text(
-                    snapshot['duration'].toString(),
+                    trip.duration,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -217,7 +215,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   const SizedBox(width: 10),
                   const Icon(Icons.attach_money),
                   Text(
-                    snapshot['price'].toString(),
+                    trip.price,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -226,7 +224,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   const SizedBox(width: 10),
                   const Icon(Icons.person),
                   Text(
-                    snapshot['passengersCount'].toString(),
+                    trip.passengersCount.toString(),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -234,12 +232,14 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                 ],
               ),
+              trip.status == 'upcoming' ?
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ElevatedButton.icon(
                     onPressed: () {
-                      showAlertDialog(context, snapshot);
+
+                      showAlertDialog(trip);
                       setState(() {});
                     },
                     icon: const Icon(Icons.delete_outlined),
@@ -255,7 +255,8 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                   ),
                 ],
-              )
+              ):
+              const SizedBox(),
             ],
           ),
         ),
@@ -292,12 +293,13 @@ class _HistoryPageState extends State<HistoryPage> {
               ).toList(),
             ),
             Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
+              child: FutureBuilder<List<Trip>>(
                 future: getTripsData(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (snapshot.hasError) {
+                    print("Error: ${snapshot.error}, snapshot.hasError");
                     return Center(
                       child: Text(
                         'Error: ${snapshot.error}',

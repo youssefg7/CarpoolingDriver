@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:carpool_driver_flutter/data/Repositories/UserRepository.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../Utilities/utils.dart';
+import '../data/Models/UserModel.dart';
 import '../widgets/loading_dialog.dart';
 
 class MissingVehicleScreen extends StatefulWidget {
@@ -34,6 +34,10 @@ class _MissingVehicleScreenState extends State<MissingVehicleScreen> {
   updateDriver() async {
     setState(() => _submitted = true);
 
+    if(!(await Utils.checkInternetConnection(context))){
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       showDialog(
         context: context,
@@ -43,34 +47,24 @@ class _MissingVehicleScreenState extends State<MissingVehicleScreen> {
         ),
       );
 
-      User? userFirebase = FirebaseAuth.instance.currentUser;
+      UserRepository userRepository = UserRepository();
 
-      try {
-        await FirebaseFirestore.instance.runTransaction((transaction) async {
-          DocumentReference userRef = FirebaseFirestore.instance
-              .collection('users')
-              .doc(userFirebase!.uid);
-
-          DocumentSnapshot snapshot = await transaction.get(userRef);
-
-          if (snapshot.exists) {
-            transaction.update(userRef, {
-              "vehicleType": selectedVehicleType,
-              "vehicleColor": colorTextEditingController.text.trim(),
-              "vehicleModel": modelTextEditingController.text.trim(),
-              "vehiclePlates": plateTextEditingController.text.trim(),
-              "isDriver": true,
-            });
-          }
-        });
-
+      Student user = await userRepository.getCurrentUser();
+      user.vehicleType = selectedVehicleType;
+      user.vehicleColor = selectedColorName;
+      user.vehicleModel = modelTextEditingController.text.trim();
+      user.vehiclePlates = plateTextEditingController.text.trim();
+      user.isDriver = true;
+      await userRepository.updateCurrentUser(user).then((value) {
         Navigator.pop(context);
-
         Navigator.pushReplacementNamed(
           context,
           '/home',);
-      } catch (e) {
-      }
+      })
+      .catchError((error) {
+        Navigator.pop(context);
+        Utils.displaySnack(error.toString(), context);
+      });
     }
   }
   @override
@@ -281,16 +275,6 @@ class _MissingVehicleScreenState extends State<MissingVehicleScreen> {
                                   ))),
                         ),]
                       ),
-                      TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text(
-                            "Already have an account? Login Here!",
-                            style: TextStyle(
-                              color: Colors.white,
-                            ),
-                          )),
                     ],
                   ),
                 ),

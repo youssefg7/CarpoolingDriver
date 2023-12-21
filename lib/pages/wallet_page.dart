@@ -29,18 +29,25 @@ class _WalletPageState extends State<WalletPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Icon(Icons.account_balance_wallet),
+                const Icon(Icons.account_balance_wallet),
                 Text(
                   'Wallet Balance',
                   style: TextStyle(
                       fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      // fontWeight: FontWeight.bold,
                       color: Colors.green[900],
 
                   ),),
-                Container(
-                  margin: const EdgeInsets.all(10),
-                  child: Text('EGP ${walletBalance.toStringAsFixed(2)}'),
+                Expanded(
+                  // margin: const EdgeInsets.all(10),
+                  child: Text('EGP ${walletBalance.toStringAsFixed(2)}',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[900],
+
+                    ),
+                  ),
                 ),
               ],
             ),

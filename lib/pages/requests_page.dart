@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'package:carpool_driver_flutter/Utilities/utils.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:carpool_driver_flutter/data/Models/ReservationModel.dart';
+import 'package:carpool_driver_flutter/data/Models/TripModel.dart';
+import 'package:carpool_driver_flutter/data/Repositories/ReservationRepository.dart';
+import 'package:carpool_driver_flutter/data/Repositories/TripRepository.dart';
+import 'package:carpool_driver_flutter/data/Repositories/UserRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../data/Models/UserModel.dart';
 
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
@@ -13,7 +18,9 @@ class RequestsPage extends StatefulWidget {
 
 class _RequestsPageState extends State<RequestsPage> {
   List<String> selectedStatusTypes = [];
-
+  ReservationRepository reservationRepository = ReservationRepository();
+  TripRepository tripRepository = TripRepository();
+  UserRepository userRepository = UserRepository();
 
   void showAcceptDialog(BuildContext context, snapshot) {
     showDialog(
@@ -24,25 +31,28 @@ class _RequestsPageState extends State<RequestsPage> {
           content: const Text('Are you sure you want to accept this request?'),
           actions: <Widget>[
             TextButton(
-              onPressed: () {
-                // Close the dialog
+              onPressed: () async{
+                if(!(await Utils.checkInternetConnection(context))) {return;}
                 Navigator.of(context).pop();
+                Reservation reservation = snapshot['reservation'];
+                reservation.status = 'accepted';
+                reservationRepository.updateReservation(reservation).then((value) {
+                    Trip trip = snapshot['trip'];
+                trip.passengersCount = trip.passengersCount + 1;
+                tripRepository.updateTrip(trip)
+                    .then((value) {
+                  Utils.displayToast("Request Accepted!", context,
+                      toastLength: Toast.LENGTH_LONG);
+                  setState(() {
 
-                FirebaseFirestore.instance
-                    .collection('trips')
-                    .doc(snapshot['tripId'])
-                    .update({
-                  'passengersCount': int.parse(snapshot['tripPassengersCount']) + 1,
-                });
-                FirebaseFirestore.instance
-                    .collection('reservations')
-                    .doc(snapshot['uid'])
-                    .update({
-                  'status': 'accepted',
+                  });
                 })
-                    .then((value) => Utils.displayToast("Request Accepted!", context, toastLength: Toast.LENGTH_LONG))
                     .catchError(
                         (error) => Utils.displaySnack("Couldn't Accept Request, Try Again.", context));
+                }
+                ).catchError(
+                        (error) => Utils.displaySnack("Couldn't Accept Request, Try Again.", context));
+
               },
               child: const Text('Accept Request'),
             ),
@@ -67,15 +77,13 @@ class _RequestsPageState extends State<RequestsPage> {
           content: const Text('Are you sure you want to decline this request?'),
           actions: <Widget>[
             TextButton(
-              onPressed: () {
+              onPressed: () async {
+                if(!(await Utils.checkInternetConnection(context))) {return;}
                 // Close the dialog
                 Navigator.of(context).pop();
-                FirebaseFirestore.instance
-                    .collection('reservations')
-                    .doc(snapshot['uid'])
-                    .update({
-                  'status': 'declined',
-                })
+                Reservation reservation = snapshot['reservation'];
+                reservation.status = 'declined';
+                reservationRepository.updateReservation(reservation)
                     .then((value) => Utils.displayToast("Request Declined!", context, toastLength: Toast.LENGTH_LONG))
                     .catchError(
                         (error) => Utils.displaySnack("Couldn't Decline Request, Try Again.", context));
@@ -97,52 +105,31 @@ class _RequestsPageState extends State<RequestsPage> {
 
   Future<List<Map<String, dynamic>>> getTripsData() async {
     var userId = FirebaseAuth.instance.currentUser?.uid;
+    List<Trip> myTrips = await tripRepository.getTripsByDriverIdAndStatus(userId!, 'upcoming');
+
     List<Map<String, dynamic>> requests = [];
-    QuerySnapshot myTrips = await FirebaseFirestore.instance
-        .collection('trips')
-        .where('driverId', isEqualTo: userId)
-        .where('status', isEqualTo: 'upcoming')
-        .get();
-    List<String> myTripsIds =
-        myTrips.docs.map((e) => e['uid'].toString()).toList();
-    QuerySnapshot requestsDocs = await FirebaseFirestore.instance
-        .collection('reservations')
-        .where('tripId', whereIn: myTripsIds)
-        .where('paymentStatus', isEqualTo: 'paid')
-        .where('status', isNotEqualTo: 'declined')
-        .get();
-    for (QueryDocumentSnapshot request in requestsDocs.docs) {
-      DocumentSnapshot<Map<String, dynamic>> rider = await FirebaseFirestore
-          .instance
-          .collection('users')
-          .doc(request['userId'])
-          .get();
-
-      DocumentSnapshot<Map<String, dynamic>> trip = await FirebaseFirestore
-          .instance
-          .collection('trips')
-          .doc(request['tripId'])
-          .get();
-
-      Map<String, dynamic> data = request.data() as Map<String, dynamic>;
-      data['riderName'] = rider['username'];
-      data['riderPhone'] = rider['phone'];
-      data['riderId'] = rider['id'];
-      data['riderEmail'] = rider['email'];
-      data['date'] = trip['date'];
-      data['start'] = trip['start'];
-      data['destination'] = trip['destination'];
-      data['price'] = trip['price'];
-      data['tripId'] = trip['uid'];
-      data['tripPassengersCount'] = trip['passengersCount'];
-      requests.add(data);
+    for(Trip trip in myTrips){
+      List<Reservation> reservations = await reservationRepository.getReservationsByTripIdAndPaymentStatusAndNotStatus(trip.id, 'paid', 'declined');
+      if(trip.date.isBefore(DateTime.now())){
+        for(Reservation reservation in reservations){
+          reservation.status = 'expired';
+          reservationRepository.updateReservation(reservation);
+        }
+        continue;
+      }
+      for(Reservation reservation in reservations){
+        Student rider = (await userRepository.getUser(reservation.userId))!;
+        requests.add({
+          'trip': trip,
+          'reservation': reservation,
+          'rider': rider,
+        });
+      }
     }
-
     return requests;
   }
 
-  List<Map<String, dynamic>> filterTripsByStatus(
-      List<Map<String, dynamic>> trips, List<String> selectedStatusTypes) {
+  List<Map<String, dynamic>> filterTripsByStatus(List<Map<String, dynamic>> trips, List<String> selectedStatusTypes) {
     if (selectedStatusTypes.isEmpty) {
       return trips;
     } else {
@@ -163,6 +150,9 @@ class _RequestsPageState extends State<RequestsPage> {
   }
 
   Widget buildTripCard(Map<String, dynamic> snapshot, BuildContext context) {
+    Trip trip = snapshot['trip'];
+    Reservation reservation = snapshot['reservation'];
+    Student rider = snapshot['rider'];
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 5, 0, 5),
       child: Card(
@@ -187,7 +177,7 @@ class _RequestsPageState extends State<RequestsPage> {
                       const Icon(Icons.date_range_sharp),
                       const SizedBox(width: 10),
                       Text(
-                        snapshot['date'].toString().substring(0, 10),
+                        Utils.formatDate(trip.date),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -200,7 +190,7 @@ class _RequestsPageState extends State<RequestsPage> {
                       const Icon(Icons.watch_later_outlined),
                       const SizedBox(width: 10),
                       Text(
-                        snapshot['rideType'] == 'toASU'
+                        trip.rideType == 'toASU'
                             ? '07:30 AM'
                             : '05:30 PM',
                         style: const TextStyle(
@@ -219,7 +209,7 @@ class _RequestsPageState extends State<RequestsPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "From: ${snapshot['start']}",
+                      "From: ${trip.start}",
                       style: const TextStyle(fontSize: 18),
                     ),
                   ),
@@ -232,7 +222,7 @@ class _RequestsPageState extends State<RequestsPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "To: ${snapshot['destination']}",
+                      "To: ${trip.destination}",
                       style: const TextStyle(fontSize: 18),
                     ),
                   ),
@@ -247,7 +237,7 @@ class _RequestsPageState extends State<RequestsPage> {
                   const Icon(Icons.person),
                   IconButton(
                       onPressed: () async{
-                        await Utils.makePhoneCall(snapshot['riderPhone']);
+                        await Utils.makePhoneCall(rider.phone);
                       },
                       icon: const Icon(
                         Icons.phone,
@@ -255,7 +245,7 @@ class _RequestsPageState extends State<RequestsPage> {
                       )),
                   const SizedBox(width: 5),
                   Text(
-                    snapshot['riderEmail'].toString().toUpperCase(),
+                    rider.email.toUpperCase(),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -272,7 +262,7 @@ class _RequestsPageState extends State<RequestsPage> {
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      snapshot['riderName'].toString(),
+                      rider.username,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -281,7 +271,7 @@ class _RequestsPageState extends State<RequestsPage> {
                   ),
                 ],
               ),
-              snapshot['status']=='accepted'?
+              reservation.status=='accepted'?
               const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children:[
@@ -297,7 +287,7 @@ class _RequestsPageState extends State<RequestsPage> {
                   ),
                 ]
               )
-                  :snapshot['status']=='declined'?
+                  :reservation.status=='declined'?
               const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children:[

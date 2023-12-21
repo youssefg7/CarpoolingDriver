@@ -50,12 +50,10 @@ class _VerifyEmailState extends State<VerifyEmail> {
         }
       }
     } catch (e) {
-      print('Error checking email verification: $e');
-      // Handle the error, show a message, or perform any necessary action.
     }
   }
 
-  resendEmail() {
+  resendEmail(){
     FirebaseAuth.instance.currentUser?.sendEmailVerification();
     Utils.displayToast("Email resent, Check your inbox and spam.", context);
   }
@@ -111,8 +109,10 @@ class _VerifyEmailState extends State<VerifyEmail> {
                       ),
                     ),
                     ElevatedButton(
-                        onPressed: () {
-                          Utils.checkInternetConnection(context);
+                        onPressed: () async {
+                          if(!(await Utils.checkInternetConnection(context))){
+                            return;
+                          }
                           resendEmail();
                         },
                         style: ElevatedButton.styleFrom(

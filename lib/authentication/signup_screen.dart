@@ -1,6 +1,7 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:carpool_driver_flutter/data/Models/UserModel.dart';
+import 'package:carpool_driver_flutter/data/Repositories/UserRepository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,8 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  UserRepository userRepository = UserRepository();
+
   TextEditingController usernameTextEditingController = TextEditingController();
   TextEditingController phoneTextEditingController = TextEditingController();
   TextEditingController emailTextEditingController = TextEditingController();
@@ -64,7 +67,6 @@ class _SignupScreenState extends State<SignupScreen> {
       if (!context.mounted) return;
       Navigator.pop(context);
 
-      CollectionReference usersCollection = FirebaseFirestore.instance.collection('users');
       Reference ref = FirebaseStorage.instance
           .ref()
           .child(
@@ -75,20 +77,20 @@ class _SignupScreenState extends State<SignupScreen> {
         url = await ref.getDownloadURL();
       } catch (e) {}
 
-        Map<String, dynamic> userMap = {
-          "username": usernameTextEditingController.text.trim(),
-          "phone": phoneTextEditingController.text.trim(),
-          "email": emailTextEditingController.text.trim(),
-          "id": userFirebase?.uid,
-          "profilePicture": url,
-          "vehicleType": selectedVehicleType,
-          "vehicleColor": colorTextEditingController.text.trim(),
-          "vehicleModel": modelTextEditingController.text.trim(),
-          "vehiclePlates": plateTextEditingController.text.trim(),
-          "isDriver": true,
-        };
+      Student user = Student(
+        username: usernameTextEditingController.text.trim(),
+        phone: phoneTextEditingController.text.trim(),
+        email: emailTextEditingController.text.trim(),
+        id: userFirebase!.uid,
+        profilePicture: url,
+        vehicleType: selectedVehicleType,
+        vehicleColor: colorTextEditingController.text.trim(),
+        vehicleModel: modelTextEditingController.text.trim(),
+        vehiclePlates: plateTextEditingController.text.trim(),
+        isDriver: true,
+      );
 
-        await usersCollection.doc(userFirebase?.uid).set(userMap);
+      await userRepository.createNewUser(user);
 
       Navigator.pushReplacementNamed(context, '/verifyEmail');
     }
@@ -506,8 +508,10 @@ class _SignupScreenState extends State<SignupScreen> {
                         height: 15,
                       ),
                       ElevatedButton(
-                          onPressed: () {
-                            Utils.checkInternetConnection(context);
+                          onPressed: () async{
+                            if(! (await Utils.checkInternetConnection(context))){
+                              return;
+                            }
                             registerNewUser();
                           },
                           style: ElevatedButton.styleFrom(

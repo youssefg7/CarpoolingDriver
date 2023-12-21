@@ -6,12 +6,12 @@ import 'package:flex_color_picker/flex_color_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:intl/intl.dart';
 
 class Utils{
-  static checkInternetConnection(BuildContext buildContext) async{
+  static Future<bool> checkInternetConnection(BuildContext buildContext) async{
     var result = await Connectivity().checkConnectivity();
     if(result!= ConnectivityResult.mobile && result != ConnectivityResult.wifi){
-      if(!buildContext.mounted) return;
       displaySnack("Internet connection is not available. Check your connection and try again!", buildContext);
       return false;
     }
@@ -83,6 +83,10 @@ class Utils{
 
   static Future<void> makePhoneCall(String phoneNumber) async {
     FlutterPhoneDirectCaller.callNumber(phoneNumber);
+  }
+
+  static String formatDate(DateTime date){
+    return DateFormat('E dd-MM-yyyy').format(date);
   }
 
 }

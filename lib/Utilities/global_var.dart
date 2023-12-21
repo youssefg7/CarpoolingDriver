@@ -8,7 +8,6 @@ const LatLng defaultLocation = LatLng(30.064554, 31.2788107);
 
 const int startFare = 10;
 
-String username = "";
 
 const CameraPosition googlePlexInitialPosition = CameraPosition(
   target: defaultLocation,
