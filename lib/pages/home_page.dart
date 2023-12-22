@@ -243,14 +243,14 @@ class _HomePageState extends State<HomePage> {
     DateTime initialDay;
     if (rideType == "toASU") {
       if (DateTime.now().isAfter(DateTime(DateTime.now().year,
-          DateTime.now().month, DateTime.now().day, 23, 30))) {
+          DateTime.now().month, DateTime.now().day, 22, 00))) {
         initialDay = DateTime(now.year, now.month, now.day + 2);
       } else {
         initialDay = DateTime(now.year, now.month, now.day + 1);
       }
     } else {
       if (DateTime.now().isAfter(DateTime(DateTime.now().year,
-          DateTime.now().month, DateTime.now().day, 16, 30))) {
+          DateTime.now().month, DateTime.now().day, 13, 00))) {
         initialDay = DateTime(now.year, now.month, now.day + 1);
       } else {
         initialDay = now;
@@ -260,7 +260,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       initialDate: initialDay,
       firstDate: initialDay,
-      lastDate: DateTime(DateTime.now().year + 1),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: ThemeData.dark(),
@@ -572,7 +572,7 @@ class _HomePageState extends State<HomePage> {
                   right: 0,
                   child: Container(
                     width: MediaQuery.of(context).size.width,
-                    height: 122,
+                    height: MediaQuery.of(context).size.height * 0.15,
                     color: Colors.black,
                     child: Column(children: [
                       const SizedBox(

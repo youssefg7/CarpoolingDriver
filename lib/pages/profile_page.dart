@@ -344,6 +344,19 @@ class _ProfilePageState extends State<ProfilePage> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
+        appBar: AppBar(
+          title: Text("${user.username.split(" ")[0]}'s Profile"),
+          centerTitle: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new),
+            color: Colors.blueAccent,
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/home');
+            },
+          ),
+        ),
         body: ListView(children: [
           Column(
             children: [
@@ -363,8 +376,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       padding: EdgeInsets.all(10),
                       shape: Badge.BadgeShape.circle,
                     ),
-                    badgeContent: const Icon(
-                      Icons.edit,
+                    badgeContent: Icon(
+                      (user.profilePicture != null &&
+                          user.profilePicture != '')?
+                      Icons.edit
+                          :Icons.add,
                       color: Colors.white,
                     ),
                     child: Container(
@@ -377,14 +393,19 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                       child: ClipOval(
-                        child: Image(
-                          image: (user.profilePicture != null && user.profilePicture != '')
-                              ? NetworkImage(user.profilePicture!)
-                              : const AssetImage("assets/images/avatarman.png") as ImageProvider,
+                        child: (user.profilePicture != null &&
+                            user.profilePicture != '')?
+                        Image(
+                          image: NetworkImage(user.profilePicture!),
                           height: 150,
                           width: 150,
                           fit: BoxFit.cover,
-                        ),
+                        ):
+                        const Icon(
+                          Icons.person,
+                          color: Colors.white70,
+                          size: 150,)
+                        ,
                       ),
                     ),
                   ),
